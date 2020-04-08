@@ -50,7 +50,7 @@ done
 
 FastQC generates a user-friendly html-based GUI that can be used to view the quality of the raw sequencing data. When looking at a representative sample, we find an output that looks like the following:
 
-![Per Base Sequence Quality](/Users/mgndolan/Desktop/WSU/MethodsofPopGen/NotebookImg/PBSequenceQ.png)
+![Per Base Sequence Quality](NotebookImg/PBSequenceQ.png)
 
 In the image above, the region indicated in green generally represents high quality scores. We see that the average quality of the reads (indicated by red lines in the box plots) in our representative example falls in the "high quality score" region. However, towards the end of the reads (bp 99-101), we see that the quality score decreases. This is a result of the lower stochastic likelihood of sequencing longer reads due to the nature of Illumina sequencing technology (polymerase terminates at tagged nucleotides). 
 
@@ -307,7 +307,7 @@ The output of our script gave us the following flag breakdown based on number of
 
 As a visualization, the following figure displays the same information in a logarithmic scale:
 
-![Bitwise Flag - Logarithmic Scale](/Users/mgndolan/Desktop/WSU/MethodsofPopGen/NotebookImg/BitwiseFlagLog.png)
+![Bitwise Flag - Logarithmic Scale](NotebookImg/BitwiseFlagLog.png)
 
 ​							**Note that any value equal to 1 cannot be visualized on a logarithmic scale**
 
