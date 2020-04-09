@@ -383,7 +383,7 @@ The GATK unified genotyper filters artifacts out of the SNP calls through three 
 
 
 
-To avoid overcomplicating the process, we are working with the automated default settings for variant filtering within the GATK package.  
+To avoid overcomplicating the process, we are working with the automated default settings for variant filtering within the GATK package. See the following script for running the GATK unified genotyper on the unicorn dataset:
 
 ```
 #!/bin/bash
@@ -511,9 +511,9 @@ gatk --analysis_type VariantFiltration \
 vcf-merge pop1.vcf.gz pop2.vcf.gz > unicorns.vcf
 ```
 
+One thing that was not emphasized earlier is the separation of the two inputs based on population. We chose to do this because the unified genotyper may not accurately call SNPs if we were to merge the population data and call SNPs as if we are looking at one whole randomly mating population. Due to this issue, we decided to separate the samples by population and run the unified genotype caller on each subset of data, then merge the two population output files.
 
-
-The script will generate a file in Variant Call Format (VCF). The Variant Call Format (VCF) is a TAB-delimited format with each data line consists of the following fields:
+The script will generate a final file in Variant Call Format (VCF). The Variant Call Format (VCF) is a TAB-delimited format with each data line consists of the following fields:
 
 | COL  | FIELD  | DESCRIPTION                                                  |
 | ---- | ------ | ------------------------------------------------------------ |
