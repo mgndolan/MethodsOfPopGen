@@ -2,7 +2,7 @@
 
 ## Megan Dolan
 
-** Note that there is information paraphrased from the lecture material given by Dr. Omar Cornejo in Methods of Population Genetics: BIOL 534, Spring 2020 **
+** Please note that there is information paraphrased and repeated from the lecture material given by Dr. Omar Cornejo in Methods of Population Genetics: BIOL 534, Spring 2020 **
 
 ### Information about our data:
 
@@ -17,14 +17,22 @@ The samples were simulated using the first chromosome of human genomic seqencing
 
 The class as a whole will be responsible for completing the analysis of the other 54 samples. One of the main objectives for the class is to determine if there are truly two separate populations and if so, when the populations diverged from one another.
 
+We need to follow a set process in order to create assembled genomes, ensure quality of our data, observe genetic variation within individuals, and determine population structure to answer biological questions. The overview of processing our NGS data is shown in the figure below:
+
+![Overview of the Analysis](NotebookImg/Overview.png)
+
+
+
 ## Phase 1: NGS Data Processing
 
-This section incluces:
+This section includes:
 
-* Read mapping
-* Local realignment
-* Duplicate marking
-* Base quality recalibration
+* Quality score assessment (FastQC)
+* Trimming
+* Local realignment or mapping using BWA
+* SAM to BAM file conversion
+
+
 
 ### 1) Quality Score Assessment with FastQC
 
@@ -57,6 +65,8 @@ In the image above, the region indicated in green generally represents high qual
 This step is important in considering how to trim our reads (or if trimming is even needed). If the quality of a read starts to drop off after certain points, you need to decide whether or not that is worth keeping. Otherwise, you can cut off of the bad quality regions of the sequence. For example, if you end up with some reads that are 50% the size of the average reads, you might not want to keep those. Furthermore, base quality assessment isn't considered during the process of mapping, which is why it is necessary to look at the quality before mapping.
 
 In our case, we decided to trim reads that have a quality score equivalent to or greater than 28. Although we will lose some reads that fall below this threshold, most of our data lies above this cutoff, with the ends (around 99-101 bp) being the major issues. 
+
+
 
 ### 2) Trimming
 
@@ -98,6 +108,8 @@ Some errors that can affect the quality score include:
 + Illumina sequencing errors
   + Nucleotide imaging (usually reduced due to consensus signaling)
   + Sample sequencing
+
+
 
 ### 3) Mapping with BWA
 
@@ -180,7 +192,9 @@ The ```-R``` flag in the ```bwa mem``` script creates a unique identifier at the
 
 The mappability of our reads can be visualized by using the UCSC mapability score GUI. 
 
-### 4) SAM to BAM Format & Base Quality Recalibration
+
+
+### 4) SAM to BAM Format 
 
 The BAM format is a compressed version of the SAM (Sequence Alignment/Mapping) format, which we get as an output of the BWA mapping. BAM files provide us with all of the information needed and are much easier to extract relevant information from, which is why we are convering the files from SAM format to BAM format. To do so, we ran the following script:
 
@@ -287,6 +301,8 @@ do
 done
 ```
 
+
+
 The output of our script gave us the following flag breakdown based on number of associated reads per sample:
 
 | Bitwise Flag | Sample 10 | Sample 30 | Sample 34 | Sample 44 | Sample 50 | Sample 54 |
@@ -305,11 +321,15 @@ The output of our script gave us the following flag breakdown based on number of
 | 177          | -         | -         | -         | 1         | 1         | -         |
 | 113          | -         | -         | -         | 1         | 1         | -         |
 
+
+
 As a visualization, the following figure displays the same information in a logarithmic scale:
 
 ![Bitwise Flag - Logarithmic Scale](NotebookImg/BitwiseFlagLog.png)
 
 ​							**Note that any value equal to 1 cannot be visualized on a logarithmic scale**
+
+
 
 Keeping in mind that the data is simulated, we see that the distribution of the bitwise flags is fairly uniform. 
 
@@ -333,9 +353,195 @@ A breakdown of the bitwise flags declared in the sample set are indicated accord
 
 Based on the above bitwise flags, we can see that all of our reads map to a proper pair. Furthermore, we see that the majority of our reads are forward facing, with some reverse reads present. 
 
+
+
 ## Phase 2: Variant Discovery and Genotyping
 
-We will be using the GATK (Genome Analysis Toolkit) package for most of this section. The syntax for this software can be found here: [GATK](https://gatk.broadinstitute.org/hc/en-us).
+Genetic variation is the driving force in evolution, as it allows natural selection to increase or decrease allele frequencies within a population. Genetic variation enables some individuals to become more or less fit in a population, leading to selection on a population. It is essential to quantify and characterize this variation within and between populations in order to answer biological questions regarding the organisms of interest. There are several types of variation:
 
-## 2) GATK Call Unified Genotyper
++ Single nucleotide aberrations (SNPs vs SNVs)
++ *Short insertions or deletions (indels)
++ Larger structural variation
 
+**Note that there are no indels in our simulated dataset*
+
+The framework for variation discovery and genotyping of NGS data is the GATK (Genome Analysis Toolkit) package, which we will use for most of this section. GATK is a package for aligned NGS data analysis, which includes a SNP and genotype caller (Unifed Genotyper), SNP filtering (Variant Filtration) and SNP quality recalibration (Variant Recalibrator). The syntax for this software can be found here: [GATK](https://gatk.broadinstitute.org/hc/en-us).
+
+
+
+### 1) GATK Call Unified Genotyper
+
+In order to call SNPs, we must first confidently identify all sites that do not match the reference. From this information, we can create genotypes for each base where not all of our data aligns with the reference genome. 
+
+To identify these sites, we must take our call-ready BAM files that were previously compressed, cleaned, and prepared, then input those files into the GATK unified genotyper. The unified genotyper looks at individual variable sites and uses a Bayesian framework to assign probabilities to genotypes.
+
+The GATK unified genotyper filters artifacts out of the SNP calls through three pass approaches:
+
+1. It first emits all sites that potentially contain a true variant
+2. It then aggregates SNP covariants in the raw VCF to determine the relationship between each covariate and the error (this step requires experience/expertise) 
+3. Finally, it applies these filters to the raw VCF using the GATK VariantFiltration tool (mentioned above).
+
+
+
+To avoid overcomplicating the process, we are working with the automated default settings for variant filtering within the GATK package.  
+
+```
+#!/bin/bash
+#SBATCH --job-name=ug.megan.call
+#SBATCH --output=/data/cas/bio534/megandolan/script_log 
+#SBATCH --error=/data/cas/bio534/megandolan/script_log 
+#SBATCH --workdir=/data/cas/bio534/megandolan/unicorn/UnifiedGenotyper
+#SBATCH --nodes=1
+#SBATCH --mem=64G
+#SBATCH --time=70:00:00
+
+module load gatk/4.1.4.1
+module load samtools/1.9
+module load vcftools/0.1.16
+
+################ Call SNPs and Indels for Pop 1################
+gatk --analysis_type UnifiedGenotyper \
+-ploidy 2 \
+--reference_sequence /data/cas/bio534/reference/unicorn.fa \
+--output_mode EMIT_ALL_SITES \
+--input_file /data/cas/bio534/final_bams/s0.F.bam \
+--input_file /data/cas/bio534/final_bams/s1.F.bam \
+--input_file /data/cas/bio534/final_bams/s2.F.bam \
+--input_file /data/cas/bio534/final_bams/s3.F.bam \
+--input_file /data/cas/bio534/final_bams/s4.F.bam \
+--input_file /data/cas/bio534/final_bams/s5.F.bam \
+--input_file /data/cas/bio534/final_bams/s6.F.bam \
+--input_file /data/cas/bio534/final_bams/s7.F.bam \
+--input_file /data/cas/bio534/final_bams/s8.F.bam \
+--input_file /data/cas/bio534/final_bams/s9.F.bam \
+--input_file /data/cas/bio534/final_bams/s10.F.bam \
+--input_file /data/cas/bio534/final_bams/s11.F.bam \
+--input_file /data/cas/bio534/final_bams/s12.F.bam \
+--input_file /data/cas/bio534/final_bams/s13.F.bam \
+--input_file /data/cas/bio534/final_bams/s14.F.bam \
+--input_file /data/cas/bio534/final_bams/s15.F.bam \
+--input_file /data/cas/bio534/final_bams/s16.F.bam \
+--input_file /data/cas/bio534/final_bams/s17.F.bam \
+--input_file /data/cas/bio534/final_bams/s18.F.bam \
+--input_file /data/cas/bio534/final_bams/s19.F.bam \
+--input_file /data/cas/bio534/final_bams/s20.F.bam \
+--input_file /data/cas/bio534/final_bams/s21.F.bam \
+--input_file /data/cas/bio534/final_bams/s22.F.bam \
+--input_file /data/cas/bio534/final_bams/s23.F.bam \
+--input_file /data/cas/bio534/final_bams/s24.F.bam \
+--input_file /data/cas/bio534/final_bams/s25.F.bam \
+--input_file /data/cas/bio534/final_bams/s26.F.bam \
+--input_file /data/cas/bio534/final_bams/s27.F.bam \
+--input_file /data/cas/bio534/final_bams/s28.F.bam \
+--input_file /data/cas/bio534/final_bams/s29.F.bam \
+--heterozygosity 0.001 \
+--confidence 50 \
+--out pop1.vcf.gz
+
+################ Extract all SNPs for Pop 1 from call set ################
+gatk --analysis_type SelectVariants \
+--reference_sequence /data/cas/bio534/reference/unicorn.fa \
+--variant pop1.vcf.gz \
+--selectTypeToInclude SNP \
+--out pop1.raw.snps.vcf.gz
+
+################ Apply filter to SNP call set for Pop1 ################
+gatk --analysis_type VariantFiltration \
+--reference_sequence /data/cas/bio534/reference/unicorn.fa \
+--variant pop1.vcf.gz \
+--filterExpression "QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5" \
+--filterName "FAILED_MISERIBLY" \
+--out pop1.filtered.vcf.gz
+
+################ Call SNPs and Indels for Pop 2 ################
+gatk --analysis_type UnifiedGenotyper \
+-ploidy 2 \
+--reference_sequence /data/cas/bio534/reference/unicorn.fa \
+--output_mode EMIT_ALL_SITES \
+--input_file /data/cas/bio534/final_bams/s30.F.bam \
+--input_file /data/cas/bio534/final_bams/s31.F.bam \
+--input_file /data/cas/bio534/final_bams/s32.F.bam \
+--input_file /data/cas/bio534/final_bams/s33.F.bam \
+--input_file /data/cas/bio534/final_bams/s34.F.bam \
+--input_file /data/cas/bio534/final_bams/s35.F.bam \
+--input_file /data/cas/bio534/final_bams/s36.F.bam \
+--input_file /data/cas/bio534/final_bams/s37.F.bam \
+--input_file /data/cas/bio534/final_bams/s38.F.bam \
+--input_file /data/cas/bio534/final_bams/s39.F.bam \
+--input_file /data/cas/bio534/final_bams/s40.F.bam \
+--input_file /data/cas/bio534/final_bams/s41.F.bam \
+--input_file /data/cas/bio534/final_bams/s42.F.bam \
+--input_file /data/cas/bio534/final_bams/s43.F.bam \
+--input_file /data/cas/bio534/final_bams/s44.F.bam \
+--input_file /data/cas/bio534/final_bams/s45.F.bam \
+--input_file /data/cas/bio534/final_bams/s46.F.bam \
+--input_file /data/cas/bio534/final_bams/s47.F.bam \
+--input_file /data/cas/bio534/final_bams/s48.F.bam \
+--input_file /data/cas/bio534/final_bams/s49.F.bam \
+--input_file /data/cas/bio534/final_bams/s50.F.bam \
+--input_file /data/cas/bio534/final_bams/s51.F.bam \
+--input_file /data/cas/bio534/final_bams/s52.F.bam \
+--input_file /data/cas/bio534/final_bams/s53.F.bam \
+--input_file /data/cas/bio534/final_bams/s54.F.bam \
+--input_file /data/cas/bio534/final_bams/s55.F.bam \
+--input_file /data/cas/bio534/final_bams/s56.F.bam \
+--input_file /data/cas/bio534/final_bams/s57.F.bam \
+--input_file /data/cas/bio534/final_bams/s58.F.bam \
+--input_file /data/cas/bio534/final_bams/s59.F.bam \
+--heterozygosity 0.001 \
+--confidence 50 \
+--out pop2.vcf.gz
+
+################ Extract all SNPs for Pop 2 from call set ################
+gatk --analysis_type SelectVariants \
+--reference_sequence /data/cas/bio534/reference/unicorn.fa \
+--variant pop2.vcf.gz \
+--selectTypeToInclude SNP \
+--out pop2.raw.snps.vcf.gz
+
+################ Apply filter to SNP call set for Pop2 ################
+gatk --analysis_type VariantFiltration \
+--reference_sequence /data/cas/bio534/reference/unicorn.fa \
+--variant pop2.vcf.gz \
+--filterExpression "QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5" \
+--filterName "FAILED_MISERIBLY" \
+--out pop2.filtered.vcf.gz
+
+##################### Merging populations vcfs ###################
+vcf-merge pop1.vcf.gz pop2.vcf.gz > unicorns.vcf
+```
+
+
+
+The script will generate a file in Variant Call Format (VCF). The Variant Call Format (VCF) is a TAB-delimited format with each data line consists of the following fields:
+
+| COL  | FIELD  | DESCRIPTION                                                  |
+| ---- | ------ | ------------------------------------------------------------ |
+| 1    | CHROM  | Chromosome name                                              |
+| 2    | POS    | left-most position of the variant                            |
+| 3    | ID     | unique variant identifier                                    |
+| 4    | REF    | reference allele                                             |
+| 5    | ALT    | alternate allele(s), separated by comma                      |
+| 6    | QUAL   | variant/reference quality                                    |
+| 7    | FILTER | filters applied                                              |
+| 8    | INFO   | information related to the variant, separated by semi-colon  |
+| 9    | FORMAT | format of the genotype fields, separated by colon (optional) |
+| 10+  | SAMPLE | sample genotypes and per-sample information (optional)       |
+
+The VCF output of the GATK unified genotyper script will provide us with the variant call information. However, we will still need to filter the variants. Within the same script, we extracted the SNPs and applied a generic filter to the data. After doing this for both populations, we then merged the files containing the population variants.
+
+#### Notes to consider:
+
+The differences between the haplotype caller and the unified genotyper are described below:
+
+***Haplotype caller***: Call germline SNPs and indels simultaneously via local de novo assembly of haplotypes in an active region.
+
++ 
+
+***Unified genotypes***: Looks at individual variable sites and uses a Bayesian framework to assign probabilities to genotypes.  
+
++ 
+
+
+
+## Phase 3: Integrative Analysis
