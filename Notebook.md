@@ -388,8 +388,8 @@ To avoid overcomplicating the process, we are working with the automated default
 ```
 #!/bin/bash
 #SBATCH --job-name=ug.megan.call
-#SBATCH --output=/data/cas/bio534/megandolan/script_log 
-#SBATCH --error=/data/cas/bio534/megandolan/script_log 
+#SBATCH --output=/data/cas/bio534/megandolan/script_log/unifiedgenotyper.out 
+#SBATCH --error=/data/cas/bio534/megandolan/script_log/unifiedgenotyper.err
 #SBATCH --workdir=/data/cas/bio534/megandolan/unicorn/UnifiedGenotyper
 #SBATCH --nodes=1
 #SBATCH --mem=64G
@@ -545,3 +545,4 @@ The differences between the haplotype caller and the unified genotyper are descr
 
 
 ## Phase 3: Integrative Analysis
+
